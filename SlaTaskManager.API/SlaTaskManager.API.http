@@ -1,0 +1,6 @@
+@SlaTaskManager.API_HostAddress = http://localhost:5056
+
+GET {{SlaTaskManager.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

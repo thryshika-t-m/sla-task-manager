@@ -427,3 +427,16 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Angular
+frontend/sla-task-manager-ui/node_modules/
+frontend/sla-task-manager-ui/.angular/
+frontend/sla-task-manager-ui/dist/
+
+# Environment & secrets — NEVER commit these
+**/appsettings.Development.json
+**/.env
+**/secrets.json
+
+# RabbitMQ / Docker local config
+docker-compose.override.yml
