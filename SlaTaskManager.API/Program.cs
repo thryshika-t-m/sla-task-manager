@@ -11,6 +11,7 @@ builder.Services.AddDbContext<SlaTaskManagerDbContext>(options =>
 builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection(RabbitMqSettings.SectionName));
 builder.Services.AddSingleton<IRabbitMqPublisher, RabbitMqPublisher>();
 builder.Services.AddSingleton<ISlaStatusCalculator, SlaStatusCalculator>();
+builder.Services.AddHostedService<SlaMonitorService>();
 
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
