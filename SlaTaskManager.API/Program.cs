@@ -1,10 +1,16 @@
 using Microsoft.EntityFrameworkCore;
+using SlaTaskManager.API.Configuration;
 using SlaTaskManager.API.Data;
+using SlaTaskManager.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<SlaTaskManagerDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection(RabbitMqSettings.SectionName));
+builder.Services.AddSingleton<IRabbitMqPublisher, RabbitMqPublisher>();
+builder.Services.AddSingleton<ISlaStatusCalculator, SlaStatusCalculator>();
 
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
