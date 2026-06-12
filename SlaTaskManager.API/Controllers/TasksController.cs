@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using SlaTaskManager.API.Data;
 using SlaTaskManager.API.Entities;
+using SlaTaskManager.API.Hubs;
 using SlaTaskManager.API.Models;
 using TaskStatus = SlaTaskManager.API.Entities.TaskStatus;
 using SlaTaskManager.API.Models.Dtos;
@@ -15,16 +17,19 @@ public class TasksController : ControllerBase
 {
     private readonly SlaTaskManagerDbContext _dbContext;
     private readonly ISlaStatusCalculator _slaStatusCalculator;
-    private readonly IRabbitMqPublisher _rabbitMqPublisher;
+    private readonly ITaskEventPublisher _taskEventPublisher;
+    private readonly IHubContext<TaskHub> _taskHubContext;
 
     public TasksController(
         SlaTaskManagerDbContext dbContext,
         ISlaStatusCalculator slaStatusCalculator,
-        IRabbitMqPublisher rabbitMqPublisher)
+        ITaskEventPublisher taskEventPublisher,
+        IHubContext<TaskHub> taskHubContext)
     {
         _dbContext = dbContext;
         _slaStatusCalculator = slaStatusCalculator;
-        _rabbitMqPublisher = rabbitMqPublisher;
+        _taskEventPublisher = taskEventPublisher;
+        _taskHubContext = taskHubContext;
     }
 
     [HttpGet]
@@ -94,19 +99,12 @@ public class TasksController : ControllerBase
         _dbContext.Tasks.Add(task);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        await _rabbitMqPublisher.PublishAsync("TaskCreated", new
-        {
-            task.Id,
-            task.Title,
-            task.AssignedTo,
-            task.Priority,
-            task.Status,
-            task.SlaHours,
-            task.CreatedAt,
-            task.DueAt
-        }, cancellationToken);
+        await _taskEventPublisher.PublishAsync(task.Id, TaskEventType.TaskCreated, cancellationToken);
 
-        return CreatedAtAction(nameof(GetById), new { id = task.Id }, ToTaskResponse(task));
+        var taskResponse = ToTaskResponse(task);
+        await _taskHubContext.Clients.All.SendAsync("BroadcastTaskUpdate", taskResponse, cancellationToken);
+
+        return CreatedAtAction(nameof(GetById), new { id = task.Id }, taskResponse);
     }
 
     [HttpPut("{id:guid}")]
@@ -147,19 +145,12 @@ public class TasksController : ControllerBase
         _dbContext.AuditLogs.Add(auditLog);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        await _rabbitMqPublisher.PublishAsync("TaskUpdated", new
-        {
-            task.Id,
-            task.Title,
-            PreviousStatus = previousStatus,
-            task.Status,
-            task.AssignedTo,
-            task.Priority,
-            task.DueAt,
-            task.LastModified
-        }, cancellationToken);
+        await _taskEventPublisher.PublishAsync(task.Id, TaskEventType.TaskUpdated, cancellationToken);
 
-        return Ok(ToTaskResponse(task));
+        var taskResponse = ToTaskResponse(task);
+        await _taskHubContext.Clients.All.SendAsync("BroadcastTaskUpdate", taskResponse, cancellationToken);
+
+        return Ok(taskResponse);
     }
 
     private TaskResponse ToTaskResponse(Entities.Task task) =>

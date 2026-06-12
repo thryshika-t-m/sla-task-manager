@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SlaTaskManager.API.Data;
 using SlaTaskManager.API.Entities;
+using SlaTaskManager.API.Models;
 using TaskStatus = SlaTaskManager.API.Entities.TaskStatus;
 using SystemTask = System.Threading.Tasks.Task;
 
@@ -42,7 +43,7 @@ public class SlaMonitorService : BackgroundService
     {
         using var scope = _scopeFactory.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<SlaTaskManagerDbContext>();
-        var rabbitMqPublisher = scope.ServiceProvider.GetRequiredService<IRabbitMqPublisher>();
+        var taskEventPublisher = scope.ServiceProvider.GetRequiredService<ITaskEventPublisher>();
 
         var now = DateTime.Now;
         var tasks = await dbContext.Tasks
@@ -72,18 +73,7 @@ public class SlaMonitorService : BackgroundService
 
             await dbContext.SaveChangesAsync(cancellationToken);
 
-            await rabbitMqPublisher.PublishAsync("SlaBreached", new
-            {
-                task.Id,
-                task.Title,
-                task.AssignedTo,
-                task.Priority,
-                PreviousStatus = previousStatus,
-                task.Status,
-                task.DueAt,
-                task.EscalatedAt,
-                BreachedAt = now
-            }, cancellationToken);
+            await taskEventPublisher.PublishAsync(task.Id, TaskEventType.SlaBreached, cancellationToken);
 
             _logger.LogWarning(
                 "Task {TaskId} auto-escalated due to SLA breach (due at {DueAt})",

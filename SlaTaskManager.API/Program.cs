@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SlaTaskManager.API.Configuration;
 using SlaTaskManager.API.Data;
+using SlaTaskManager.API.Hubs;
 using SlaTaskManager.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -10,6 +11,7 @@ builder.Services.AddDbContext<SlaTaskManagerDbContext>(options =>
 
 builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection(RabbitMqSettings.SectionName));
 builder.Services.AddSingleton<IRabbitMqPublisher, RabbitMqPublisher>();
+builder.Services.AddSingleton<ITaskEventPublisher, TaskEventPublisher>();
 builder.Services.AddSingleton<ISlaStatusCalculator, SlaStatusCalculator>();
 builder.Services.AddHostedService<SlaMonitorService>();
 
@@ -33,5 +35,6 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<TaskHub>("/hubs/tasks");
 
 app.Run();
